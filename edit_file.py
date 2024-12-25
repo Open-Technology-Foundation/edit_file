@@ -356,30 +356,19 @@ def edit_file(filename: str, *, validate: bool = True, line_num: Optional[int] =
     temp_path = Path(tmp.name)
 
   try:
+    # EDIT
     if filepath.exists():
       shutil.copy2(filepath, temp_path)
 
     editor_path = get_editor()
     startline = f"+{line_num}" if line_num > 0 else ''
     while True:
-      # EDIT
       cmd = [editor_path]
       if startline:
         cmd.append(startline)
         startline = None
       cmd.append(temp_path)
       subprocess.run(cmd, check=True)
-      '''
-      editor_path = get_editor()
-      startline = f"+{line_num}" if line_num > 0 else ''
-      while True:
-        # EDIT
-        if startline:
-          subprocess.run([editor_path, startline, temp_path], check=True)
-          startline = None
-        else:
-          subprocess.run([editor_path, temp_path], check=True)
-      '''
       # Skip validation if disabled or file type not supported
       if not validator or not validate:
         break
@@ -421,21 +410,20 @@ def find_executable(filename: str) -> Optional[str]:
 if __name__ == '__main__':
   import argparse
 
-  parser = argparse.ArgumentParser(description="Edit files with optional validation")
+  ftype = f"Supported file types:\n"
+  for ext in get_validators().keys():
+      ftype += f" {ext}"
+  parser = argparse.ArgumentParser(description=f"Edit files with optional validation.  \n\n{ftype}")
   parser.add_argument("filename", help="File to edit")
   parser.add_argument("-n", "--no-validate", action="store_true",
                    help="Skip validation")
   parser.add_argument("-l", "--line", type=int, default=0,
                    help="Start editing at specified line number")
-  parser.add_argument("-s", "--shellcheck-legacy", default=None,
+  parser.add_argument("-s", "--legacy", default=None,
                    help="Legacy shellcheck flag")
 
   if len(sys.argv) == 1:
     parser.print_help()
-    print("Supported file types:")
-    for ext in get_validators().keys():
-        print(f" .{ext}", sep=' ', end='')
-    print("")
     sys.exit(1)
 
   args = parser.parse_args()
@@ -464,14 +452,15 @@ if __name__ == '__main__':
           if response != 'y':
             raise SystemExit(0)
           break
-    filename = os.path.realpath(file_path)
-    break
+      # file does not exist
+      filename = os.path.realpath(file_path)
+      response = input(f"Create '{filename}'? y/n ").lower()
+      if response != 'y':
+        raise SystemExit(0)
+      break
 
- #   filename = os.path.realpath(file_path)
-    response = input(f"Create '{filename}'? y/n ").lower()
-    if response != 'y':
-      raise SystemExit(0)
-
-  edit_file(filename, validate=not args.no_validate, line_num=args.line)
+  edit_file(filename, \
+    validate=not args.no_validate, \
+    line_num=args.line)
 
 #fin
