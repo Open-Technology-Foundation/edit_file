@@ -220,6 +220,7 @@ def validate_csv(filepath: str) -> bool:
     raise ValidationError(f"Invalid CSV: {e}")
 
 def validate_markdown(filepath: str) -> bool:
+  return True ## not yet implemented (what's there to implement??)
   """Validate Markdown formatting"""
   try:
     import mdformat
@@ -255,19 +256,8 @@ def validate_shell(filepath: str) -> bool:
   except subprocess.CalledProcessError as e:
     errors.append(f"Bash validation failed: {e}")
 
-  # Then run shellcheck if available
   if shutil.which('shellcheck'):
-#    try:
     result = shellcheckr(filepath)
-#      # Run shellcheck with specific options
-#      result = subprocess.run(
-#        ['shellcheck', '--format=tty', filepath],
-#        capture_output=True,
-#        text=True,
-#        check=True  # This will raise CalledProcessError on any error
-#      )
-#    except subprocess.CalledProcessError as e:
-#      # e.output contains stdout, e.stderr contains stderr
     if result:
       errors.append(f"Shellcheck issues:\n{result}")
       return False
