@@ -88,6 +88,7 @@ The script will use editors in the following order:
 ## Dependencies
 
 ### Required
+- Bash
 - Python 3.8+
 - Standard Python libraries
 
@@ -116,4 +117,5 @@ This project is licensed under the GPL3 License - see the LICENSE file for detai
 ## Author
 
 Gary Dean - garydean@yatti.id
+
 
