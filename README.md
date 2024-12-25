@@ -1,22 +1,14 @@
-Script    : p
-Desc      : Edit/SyntaxCheck/ShellCheck/Execute for
-          : bash, php and python scripts.
-          : 
-          : Bash/php scripts without .sh/.bash/.php extensions are 
-          : autodetected from the header.
-          : 
-          : Uses EDITOR (currently '/usr/local/bin/jj ').
-          : 
-Synopsis  : p [Options] filename
-          : Where 'filename' is the file to edit.
-          :
-Options   : -f bash|sh|py|html|php|text
-          :         File type. If not specified then filetype is
-          :         detected. Default text
-          : -s      Execute shellcheck after editing.
-          : +s      Don't execute shellcheck after editing (default).
-          : -l row  Position at row on entry to editor.
-          : -t      Append bash template to filename.
-          :
-Requires  : shellcheck
-          : 
+edit_file - Edit files with optional validation
+
+usage: edit_file [-h] [-n] [-l LINE] filename
+
+positional arguments:
+  filename              File to edit
+
+options:
+  -h, --help            show this help message and exit
+  -n, --no-validate     Skip validation
+  -l LINE, --line LINE  Start editing at specified line number
+
+supported file types:
+ .php .json .yaml .xml .toml .ini .csv .markdown .python .shell .html .yml .conf .cfg .config .htm .xhtml .bash .sh .zsh .ksh .py .pyw .pyc .pyi .php3 .php4 .php5 .php7 .phtml .phps .xsl .xslt .svg .jsonld .md .mdown .tsv .tml

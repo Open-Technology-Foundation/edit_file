@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional, NoReturn
 
 from filetype import filetype
+from shellcheckr import shellcheckr
 
 def is_text_file(filepath: str) -> bool:
   """
@@ -253,19 +254,23 @@ def validate_shell(filepath: str) -> bool:
       errors.append(f"Bash syntax check failed:\n{result.stderr}")
   except subprocess.CalledProcessError as e:
     errors.append(f"Bash validation failed: {e}")
+
   # Then run shellcheck if available
   if shutil.which('shellcheck'):
-    try:
-      # Run shellcheck with specific options
-      result = subprocess.run(
-        ['shellcheck', '--format=tty', filepath],
-        capture_output=True,
-        text=True,
-        check=True  # This will raise CalledProcessError on any error
-      )
-    except subprocess.CalledProcessError as e:
-      # e.output contains stdout, e.stderr contains stderr
-      errors.append(f"Shellcheck issues:\n{e.stderr if e.stderr else e.stdout}")
+#    try:
+    result = shellcheckr(filepath)
+#      # Run shellcheck with specific options
+#      result = subprocess.run(
+#        ['shellcheck', '--format=tty', filepath],
+#        capture_output=True,
+#        text=True,
+#        check=True  # This will raise CalledProcessError on any error
+#      )
+#    except subprocess.CalledProcessError as e:
+#      # e.output contains stdout, e.stderr contains stderr
+    if result:
+      errors.append(f"Shellcheck issues:\n{result}")
+      return False
   if errors:
     raise ValidationError("\n".join(errors))
   return True
@@ -436,10 +441,11 @@ if __name__ == '__main__':
                    help="Legacy shellcheck flag")
 
   if len(sys.argv) == 1:
-    print("Supported file types:", file=sys.stderr)
-    for ext in get_validators().keys():
-        print(f"  .{ext}", file=sys.stderr)
     parser.print_help()
+    print("Supported file types:")
+    for ext in get_validators().keys():
+        print(f" .{ext}", sep=' ', end='')
+    print("")
     sys.exit(1)
 
   args = parser.parse_args()
@@ -468,8 +474,10 @@ if __name__ == '__main__':
           if response != 'y':
             raise SystemExit(0)
           break
-
     filename = os.path.realpath(file_path)
+    break
+
+ #   filename = os.path.realpath(file_path)
     response = input(f"Create '{filename}'? y/n ").lower()
     if response != 'y':
       raise SystemExit(0)
