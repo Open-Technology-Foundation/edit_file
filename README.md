@@ -1,4 +1,4 @@
-# edit_file - Smart Text Editor with Validation
+# edit_file - Smart Text Editor with Validation 
 
 A sophisticated terminal-based text editor wrapper that provides safe file editing with built-in validation for multiple file formats. Perfect for system administrators and developers who need reliable file editing with syntax checking.
 
