@@ -3,6 +3,7 @@
 Terminal-based text file editor with JSON/YAML validation support.
 Finds available editor and provides safe file editing with validation.
 """
+
 import os
 import shutil
 import subprocess
@@ -15,6 +16,10 @@ from typing import Optional, NoReturn
 
 from filetype import filetype
 from shellcheckr import shellcheckr
+
+def touch_with_stats(new_file, reference_file):
+  Path(new_file).touch()
+  shutil.copystat(reference_file, new_file)
 
 def is_text_file(filepath: str) -> bool:
   """
@@ -340,25 +345,25 @@ def edit_file(filename: str, *, validate: bool = True, line_num: Optional[int] =
     validate: Whether to perform validation (default: True)
   """
   filepath = Path(filename)
-  suffix = filepath.suffix.lower().lstrip('.')  # Remove leading dot
-  stem = filepath.stem.lower()
+  suffix = filepath.suffix
+  stem = filepath.stem
 
   # Get available validators
   validators = get_validators()
   # Use validator if available for this file type
-  validator = validators.get(suffix) if validate else None
+  validator = validators.get(suffix.lower().lstrip('.')) if validate else None
   if validator is None:
     validator = filetype(filepath)
     if validator:
       validator = validators.get(validator) if validate else None
 
-  with tempfile.NamedTemporaryFile(prefix=stem,suffix=suffix, delete=False) as tmp:
-    temp_path = Path(tmp.name)
-
   try:
     # EDIT
+    temp_path = f"{filepath.parent.absolute()}/.~{filepath.name}"
     if filepath.exists():
       shutil.copy2(filepath, temp_path)
+    else:
+      Path(temp_path).touch(exist_ok=True)
 
     editor_path = get_editor()
     startline = f"+{line_num}" if line_num > 0 else ''
@@ -368,6 +373,7 @@ def edit_file(filename: str, *, validate: bool = True, line_num: Optional[int] =
         cmd.append(startline)
         startline = None
       cmd.append(temp_path)
+      # execute EDITOR
       subprocess.run(cmd, check=True)
       # Skip validation if disabled or file type not supported
       if not validator or not validate:
