@@ -258,14 +258,17 @@ def validate_shell(filepath: str) -> bool:
     )
     if result.returncode != 0:
       errors.append(f"Bash syntax check failed:\n{result.stderr}")
+      return False
   except subprocess.CalledProcessError as e:
     errors.append(f"Bash validation failed: {e}")
+    return False
 
   if shutil.which('shellcheck'):
     result = shellcheckr(filepath)
     if result:
       errors.append(f"Shellcheck issues:\n{result}")
       return False
+
   if errors:
     raise ValidationError("\n".join(errors))
   return True
@@ -425,7 +428,7 @@ if __name__ == '__main__':
                    help="Skip validation")
   parser.add_argument("-l", "--line", type=int, default=0,
                    help="Start editing at specified line number")
-  parser.add_argument("-s", "--legacy", default=None,
+  parser.add_argument("-s", "--legacy", action="store_true", default=None,
                    help="Legacy shellcheck flag")
 
   if len(sys.argv) == 1:
