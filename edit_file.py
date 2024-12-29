@@ -461,8 +461,9 @@ if __name__ == '__main__':
           if response != 'y':
             raise SystemExit(0)
           break
+
       # file does not exist
-      filename = os.path.realpath(file_path)
+      filename = os.path.realpath(args.filename)
       response = input(f"Create '{filename}'? y/n ").lower()
       if response != 'y':
         raise SystemExit(0)
