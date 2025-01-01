@@ -263,12 +263,6 @@ def validate_shell(filepath: str) -> bool:
     errors.append(f"Bash validation failed: {e}")
     return False
 
-  if shutil.which('shellcheck'):
-    result = shellcheckr(filepath)
-    if result:
-      errors.append(f"Shellcheck issues:\n{result}")
-      return False
-
   if errors:
     raise ValidationError("\n".join(errors))
   return True
@@ -340,7 +334,7 @@ def get_editor() -> str:
     "No suitable text editor found."
   )
 
-def edit_file(filename: str, *, validate: bool = True, line_num: Optional[int] = 0) -> None:
+def edit_file(filename: str, *, validate: bool = True, line_num: Optional[int] = 0, shellcheck: Optional[bool] = False) -> None:
   """
   Edit a file with optional syntax validation for supported file formats.
   Args:
@@ -383,6 +377,11 @@ def edit_file(filename: str, *, validate: bool = True, line_num: Optional[int] =
         break
       try:
         validator(temp_path)
+        if shellcheck:
+          if shutil.which('shellcheck'):
+            result = shellcheckr(filepath)
+            if result:
+              print(f"Shellcheck issues:\n{result}")
         break  # Break if validation succeeds
       except ValidationError as e:
         print(f"\nValidation failed: {e}", file=sys.stderr)
@@ -428,8 +427,8 @@ if __name__ == '__main__':
                    help="Skip validation")
   parser.add_argument("-l", "--line", type=int, default=0,
                    help="Start editing at specified line number")
-  parser.add_argument("-s", "--legacy", action="store_true", default=None,
-                   help="Legacy shellcheck flag")
+  parser.add_argument("-s", "--shellcheck", action="store_true",
+                   help="Shellcheck flag")
 
   if len(sys.argv) == 1:
     parser.print_help()
@@ -471,6 +470,7 @@ if __name__ == '__main__':
 
   edit_file(filename, \
     validate=not args.no_validate, \
-    line_num=args.line)
+    line_num=args.line,
+    shellcheck=args.shellcheck)
 
 #fin
