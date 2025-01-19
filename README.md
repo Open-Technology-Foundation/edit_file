@@ -1,47 +1,56 @@
-# edit_file - Smart Text Editor with Validation 
+# edit_file - Intelligent Text Editor with Validation
 
-A sophisticated terminal-based text editor wrapper that provides safe file editing with built-in validation for multiple file formats. Perfect for system administrators and developers who need reliable file editing with syntax checking.
+Terminal-based text editor wrapper providing safe file editing with built-in validation for multiple file formats. Designed for system administrators and developers who need reliable file editing with syntax checking.
 
 ## Features
 
-- 🔍 Automatic syntax validation for multiple file formats
-- 🔒 Safe editing using temporary files
-- 🎯 Smart editor detection and fallback
-- 📝 Support for line number targeting
-- 🛡️ Binary file protection
-- 🔄 Path resolution and symlink handling
-- ⚡ Executable file detection and safety prompts
+- 🔍 Comprehensive syntax validation for multiple file formats
+- 🛡️ Safe editing with temporary file handling
+- 🎯 Intelligent editor detection and fallback
+- 📝 Line number targeting support
+- 🔒 Binary file detection and protection
+- 🔄 Advanced path resolution and symlink handling
+- ⚡ Smart executable file detection with safety prompts
+- 🐚 Integrated shellcheck support for shell scripts
 
-## Supported File Formats
+## Supported File Types
 
-- JSON/JSONLD
-- YAML/YML
-- XML/XSLT/SVG
-- TOML
-- INI/Config files
-- CSV/TSV
-- Markdown
-- Python
-- Shell scripts (with shellcheck integration)
-- PHP
-- HTML/XHTML
+### Programming Languages
+- Python (.py, .pyw, .pyi)
+- PHP (.php, .phtml, .php3-7)
+- Shell Scripts (.sh, .bash, .zsh, .ksh)
+
+### Markup & Data
+- JSON/JSONLD (.json, .jsonld)
+- YAML (.yml, .yaml)
+- XML/XSLT/SVG (.xml, .xsl, .xslt, .svg)
+- HTML (.html, .htm, .xhtml)
+- Markdown (.md, .markdown, .mdown)
+- TOML (.toml, .tml)
+- INI/Config (.ini, .conf, .cfg, .config)
+- CSV/TSV (.csv, .tsv)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/edit_file.git
+https://github.com/Open-Technology-Foundation/edit_file
 cd edit_file
 ```
 
-2. Make the script executable:
+2. Install required Python packages:
 ```bash
-chmod +x edit_file.py
+pip install -r requirements.txt
 ```
 
-3. Optional: Create symlinks for easier access:
+3. Make scripts executable:
 ```bash
-sudo ln -s edit_file.py /usr/local/bin/edit_file
+chmod +x edit_file.py filetype.py shellcheckr.py
+```
+
+4. Optional: Create system-wide symlink:
+```bash
+sudo ln -s $(pwd)/edit_file.py /usr/local/bin/edit_file
 ```
 
 ## Usage
@@ -51,27 +60,31 @@ Basic usage:
 edit_file filename
 ```
 
-With options:
+Options:
 ```bash
-edit_file [-n] [-l LINE] filename
+edit_file [-n] [-l LINE] [-s] filename
+
+Options:
+  -n, --no-validate   Skip validation
+  -l, --line LINE     Start editing at specified line number
+  -s, --shellcheck    Run shellcheck on shell scripts after editing
 ```
-
-### Command Line Options
-
-- `-n, --no-validate`: Skip validation
-- `-l, --line LINE`: Start editing at specified line number
-- `-h, --help`: Show help message
 
 ### Examples
 
-Edit a Python file with validation:
+Edit a Python script with validation:
 ```bash
 edit_file script.py
 ```
 
-Edit starting at line 50:
+Edit YAML file starting at line 50:
 ```bash
 edit_file -l 50 config.yaml
+```
+
+Edit shell script with shellcheck:
+```bash
+edit_file -s deploy.sh
 ```
 
 Edit without validation:
@@ -81,41 +94,68 @@ edit_file -n data.json
 
 ## Editor Selection
 
-The script will use editors in the following order:
-1. Value of `$EDITOR` environment variable
-2. Available system editors: nano, vim, vi, mcedit, joe, ne, micro, emacs, jed, gedit
+The script selects editors in this priority:
+1. `$EDITOR` environment variable
+2. Available system editors in order:
+   - nano
+   - vim
+   - vi
+   - mcedit
+   - joe
+   - ne
+   - micro
+   - emacs
+   - jed
+   - gedit
 
 ## Dependencies
 
 ### Required
-- Bash
-- Python 3.8+
-- Standard Python libraries
+- Python 3.12+
+- PyYAML
+- tomli
 
-### Optional (for enhanced validation)
-- shellcheck (for shell script validation)
-- yamllint (for YAML validation)
-- php-cli (for PHP validation)
-- html5lib (for HTML validation)
-- tomli (for TOML validation)
+### Optional (Enhanced Validation)
+- shellcheck (shell script validation)
+- yamllint (YAML validation)
+- php-cli (PHP validation)
+- html5lib (HTML validation)
 
-## Installation of Optional Dependencies
+### Installation on Ubuntu
 
-On Ubuntu/Debian:
 ```bash
-sudo apt install shellcheck yamllint php-cli python3-html5lib python3-tomli
+# Core dependencies
+sudo apt install python3-yaml python3-tomli
+
+# Optional validators
+sudo apt install shellcheck yamllint php-cli python3-html5lib
+```
+
+## Project Structure
+
+```
+.
+├── edit_file.py      # Main editor script
+├── filetype.py       # File type detection
+├── shellcheckr.py    # Shell script validator
+├── requirements.txt  # Python dependencies
+└── README.md        # Documentation
 ```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please feel free to submit pull requests.
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is licensed under the GPL3 License - see the LICENSE file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Author
 
 Gary Dean - garydean@yatti.id
-
-
