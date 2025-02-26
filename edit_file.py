@@ -13,7 +13,7 @@ import yaml
 import tempfile
 import signal
 from pathlib import Path
-from typing import Optional, NoReturn
+from typing import Optional, Callable, Dict, Any, NoReturn
 
 from filetype import filetype
 from shellcheckr import shellcheckr
@@ -27,6 +27,7 @@ class ValidationError(Exception):
   pass
 
 def touch_with_stats(new_file: Path, reference_file: Path) -> None:
+  """Create a new file with the same stats as a reference file."""
   new_file.touch()
   shutil.copystat(reference_file, new_file)
 
@@ -69,6 +70,8 @@ def validate_php(filepath: str) -> bool:
     return True
   except subprocess.CalledProcessError as e:
     raise ValidationError(f"PHP validation failed: {e}")
+  except FileNotFoundError:
+    raise ValidationError("PHP interpreter not found. Please install PHP.")
 
 def validate_json(filepath: str) -> bool:
   """Validate JSON file syntax."""
@@ -78,25 +81,33 @@ def validate_json(filepath: str) -> bool:
     return True
   except json.JSONDecodeError as e:
     raise ValidationError(f"Invalid JSON: {e}")
+  except UnicodeDecodeError:
+    raise ValidationError("Invalid encoding. JSON files must be UTF-8 encoded.")
 
 def validate_yaml(filepath: str) -> bool:
   """Enhanced YAML validation using yamllint or PyYAML."""
-  validators = [
-    lambda: subprocess.run(
+  errors = []
+
+  # Try yamllint first if available
+  try:
+    result = subprocess.run(
       ['yamllint', '-f', 'parsable', filepath],
-      capture_output=True, text=True, check=True
-    ),
-    lambda: yaml.safe_load(Path(filepath).read_text(encoding='utf-8')),
-  ]
-  last_error = None
-  for validator in validators:
-    try:
-      validator()
+      capture_output=True, text=True
+    )
+    if result.returncode == 0:
       return True
-    except (FileNotFoundError, subprocess.CalledProcessError, yaml.YAMLError) as e:
-      last_error = e
-      continue
-  raise ValidationError(f"Invalid YAML: {last_error}")
+  except (FileNotFoundError, subprocess.SubprocessError) as e:
+    errors.append(f"yamllint: {e}")
+
+  # Fall back to PyYAML
+  try:
+    yaml.safe_load(Path(filepath).read_text(encoding='utf-8'))
+    return True
+  except yaml.YAMLError as e:
+    errors.append(f"PyYAML: {e}")
+    raise ValidationError(f"Invalid YAML: {errors[-1]}")
+  except UnicodeDecodeError:
+    raise ValidationError("Invalid encoding. YAML files must be UTF-8 encoded.")
 
 def validate_xml(filepath: str) -> bool:
   """Validate XML using ElementTree."""
@@ -106,6 +117,8 @@ def validate_xml(filepath: str) -> bool:
     return True
   except ET.ParseError as e:
     raise ValidationError(f"Invalid XML: {e}")
+  except Exception as e:
+    raise ValidationError(f"XML validation error: {e}")
 
 def validate_toml(filepath: str) -> bool:
   """Validate TOML file."""
@@ -114,8 +127,20 @@ def validate_toml(filepath: str) -> bool:
     with open(filepath, 'rb') as f:
       tomli.load(f)
     return True
+  except ImportError:
+    try:
+      import toml
+      with open(filepath, 'r', encoding='utf-8') as f:
+        toml.load(f)
+      return True
+    except ImportError:
+      raise ValidationError("Neither tomli nor toml package is installed")
+    except toml.TomlDecodeError as e:
+      raise ValidationError(f"Invalid TOML: {e}")
   except tomli.TOMLDecodeError as e:
     raise ValidationError(f"Invalid TOML: {e}")
+  except UnicodeDecodeError:
+    raise ValidationError("Invalid encoding. TOML files must be UTF-8 encoded.")
 
 def validate_ini(filepath: str) -> bool:
   """Validate INI file."""
@@ -126,6 +151,8 @@ def validate_ini(filepath: str) -> bool:
     return True
   except configparser.Error as e:
     raise ValidationError(f"Invalid INI: {e}")
+  except UnicodeDecodeError:
+    raise ValidationError("Invalid encoding. INI files must be UTF-8 encoded.")
 
 def validate_csv(filepath: str) -> bool:
   """Validate CSV structure."""
@@ -143,6 +170,8 @@ def validate_csv(filepath: str) -> bool:
     return True
   except csv.Error as e:
     raise ValidationError(f"Invalid CSV: {e}")
+  except UnicodeDecodeError:
+    raise ValidationError("Invalid encoding. CSV files must be UTF-8 encoded.")
 
 def validate_markdown(filepath: str) -> bool:
   """
@@ -155,6 +184,14 @@ def validate_markdown(filepath: str) -> bool:
       content = f.read()
     mdformat.text(content)
     return True
+  except ImportError:
+    # If mdformat isn't available, just check if it's readable text
+    try:
+      with open(filepath, 'r', encoding='utf-8') as f:
+        f.read()
+      return True
+    except Exception as e:
+      raise ValidationError(f"Markdown validation error: {e}")
   except Exception as e:
     raise ValidationError(f"Invalid Markdown: {e}")
 
@@ -167,6 +204,8 @@ def validate_python(filepath: str) -> bool:
     return True
   except SyntaxError as e:
     raise ValidationError(f"Invalid Python syntax: {e}")
+  except UnicodeDecodeError:
+    raise ValidationError("Invalid encoding. Python files must be UTF-8 encoded.")
 
 def validate_shell(filepath: str) -> bool:
   """Validate shell script syntax using bash -n."""
@@ -181,6 +220,8 @@ def validate_shell(filepath: str) -> bool:
     return True
   except subprocess.CalledProcessError as e:
     raise ValidationError(f"Bash validation failed: {e}")
+  except FileNotFoundError:
+    raise ValidationError("Bash interpreter not found.")
 
 def validate_html(filepath: str) -> bool:
   """Validate HTML using html5lib."""
@@ -189,10 +230,18 @@ def validate_html(filepath: str) -> bool:
     with open(filepath, 'r', encoding='utf-8') as f:
       html5lib.parse(f.read())
     return True
+  except ImportError:
+    # If html5lib isn't available, just check if it's readable text
+    try:
+      with open(filepath, 'r', encoding='utf-8') as f:
+        f.read()
+      return True
+    except Exception as e:
+      raise ValidationError(f"HTML validation error: {e}")
   except Exception as e:
     raise ValidationError(f"Invalid HTML: {e}")
 
-def get_validators() -> dict:
+def get_validators() -> Dict[str, Callable[[str], bool]]:
   """
   Return a dictionary of validator functions keyed by short name.
   Also map various extensions to the canonical validator.
@@ -202,29 +251,36 @@ def get_validators() -> dict:
     for name, obj in globals().items()
     if name.startswith('validate_') and callable(obj)
   }
+
+  # Extension to validator mapping
   extensions = {
+    # YAML files
     'yml': base_validators['yaml'],
     'yaml': base_validators['yaml'],
 
+    # INI/Config files
     'conf': base_validators['ini'],
     'cfg': base_validators['ini'],
     'config': base_validators['ini'],
     'ini': base_validators['ini'],
 
+    # HTML files
     'htm': base_validators['html'],
     'html': base_validators['html'],
     'xhtml': base_validators['html'],
 
+    # Shell scripts
     'bash': base_validators['shell'],
     'sh': base_validators['shell'],
     'zsh': base_validators['shell'],
     'ksh': base_validators['shell'],
 
+    # Python files
     'py': base_validators['python'],
     'pyw': base_validators['python'],
-    'pyc': base_validators['python'],
     'pyi': base_validators['python'],
 
+    # PHP files
     'php': base_validators['php'],
     'php3': base_validators['php'],
     'php4': base_validators['php'],
@@ -233,21 +289,26 @@ def get_validators() -> dict:
     'phtml': base_validators['php'],
     'phps': base_validators['php'],
 
+    # XML files
     'xml': base_validators['xml'],
     'xsl': base_validators['xml'],
     'xslt': base_validators['xml'],
     'svg': base_validators['xml'],
 
+    # JSON files
     'json': base_validators['json'],
     'jsonld': base_validators['json'],
 
+    # Markdown files
     'md': base_validators['markdown'],
     'markdown': base_validators['markdown'],
     'mdown': base_validators['markdown'],
 
+    # CSV files
     'csv': base_validators['csv'],
     'tsv': base_validators['csv'],
 
+    # TOML files
     'toml': base_validators['toml'],
     'tml': base_validators['toml'],
   }
@@ -286,7 +347,7 @@ def get_editor() -> str:
       return editor_path
 
   preferred_editors = [
-    'nano', 'vim', 'vi', 'mcedit', 'joe', 'ne',
+    'joe', 'nano', 'vim', 'vi', 'mcedit', 'ne',
     'micro', 'emacs', 'jed', 'gedit'
   ]
   for ed in preferred_editors:
@@ -307,6 +368,26 @@ def find_executable(filename: str) -> Optional[str]:
   """
   return shutil.which(filename)
 
+def is_shell_script(filepath: str) -> bool:
+  """
+  Determine if a file is a shell script based on extension or content.
+  Args:
+    filepath: Path to the file to check
+  Returns:
+    bool: True if the file is a shell script, False otherwise
+  """
+  # Check extension first
+  ext = Path(filepath).suffix.lower().lstrip('.')
+  if ext in ('sh', 'bash', 'zsh', 'ksh'):
+    return True
+
+  # Check file type
+  detected_type = filetype(filepath)
+  if detected_type == 'bash':
+    return True
+
+  return False
+
 def edit_file(filename: str,
               *,
               validate: bool = True,
@@ -322,6 +403,7 @@ def edit_file(filename: str,
   """
   filepath = Path(filename)
 
+  # Create parent directories if they don't exist
   if not filepath.parent.exists():
     try:
       filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -329,41 +411,63 @@ def edit_file(filename: str,
       print(f"Cannot create parent directory: {e}", file=sys.stderr)
       sys.exit(1)
 
+  # Determine the appropriate validator
   validators_map = get_validators()
   extension = filepath.suffix.lower().lstrip('.')
   validator = validators_map.get(extension) if validate else None
 
+  # If no validator found by extension, try to detect file type
   if validator is None and validate:
-    detected_type = filetype(str(filepath))  # e.g. 'bash', 'python', etc.
+    detected_type = filetype(str(filepath))
     if detected_type in validators_map:
       validator = validators_map[detected_type]
 
-  temp_path = filepath.parent / f".~{filepath.name}"
+  # Create a temporary file for editing
+  with tempfile.NamedTemporaryFile(
+    dir=filepath.parent,
+    prefix=f".~{filepath.name}",
+    delete=False
+  ) as temp_file:
+    temp_path = Path(temp_file.name)
 
+  # Copy existing file to temp file if it exists
   if filepath.exists():
     shutil.copy2(filepath, temp_path)
   else:
     temp_path.touch(exist_ok=True)
 
-  editor_path = get_editor()
+  # Get editor path
+  try:
+    editor_path = get_editor()
+  except EditorNotFoundError as e:
+    print(f"Error: {e}", file=sys.stderr)
+    temp_path.unlink(missing_ok=True)
+    sys.exit(1)
+
   startline = f"+{line_num}" if line_num > 0 else ""
 
   try:
     while True:
+      # Prepare editor command
       cmd = [editor_path]
       if startline:
         cmd.append(startline)
-        startline = ""
+        startline = ""  # Only use line number for first edit
       cmd.append(str(temp_path))
 
+      # Run the editor
       subprocess.run(cmd, check=True)
 
+      # Skip validation if not requested
       if not validator:
         break
 
       try:
+        # Validate the file
         validator(str(temp_path))
-        if shellcheck and shutil.which('shellcheck'):
+
+        # Only run shellcheck on shell scripts
+        if shellcheck and is_shell_script(str(temp_path)) and shutil.which('shellcheck'):
           checks = shellcheckr(str(temp_path))
           if checks:
             print(f"Shellcheck issues:\n{checks}")
@@ -378,6 +482,7 @@ def edit_file(filename: str,
           sys.exit(1)
         break
 
+    # Move temp file to target file
     shutil.move(str(temp_path), str(filepath))
 
   except subprocess.CalledProcessError as e:
@@ -419,7 +524,8 @@ def main():
     help="Start editing at specified line number")
   parser.add_argument("-s", "--shellcheck", action="store_true",
     help="Run shellcheck on shell scripts after editing")
-
+  parser.add_argument("-V", "--version", action="version", version="0.9.0",
+    help="Show version information and exit")
   if len(sys.argv) == 1:
     parser.print_help()
     sys.exit(1)
@@ -447,9 +553,9 @@ def main():
         resolved_new = resolve_path(incoming_path)
         reply = input(f"Create '{resolved_new}'? (y/n) ").strip().lower()
         if reply == 'y':
-          filename = str(resolved_new)
+            filename = str(resolved_new)
         else:
-          sys.exit(0)
+            sys.exit(0)
     else:
       resolved_new = resolve_path(incoming_path)
       if not resolved_new.exists():

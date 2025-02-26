@@ -30,10 +30,13 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 def get_mime_type(filename: str) -> str:
   """Get MIME type of file using 'file' command"""
+  if not os.path.exists(filename):
+    return ""
+
   try:
     result = subprocess.run(
       ['file', '-b', '--mime-type', filename],
@@ -47,6 +50,9 @@ def get_mime_type(filename: str) -> str:
 
 def get_file_type(filename: str) -> str:
   """Get file type description using 'file' command"""
+  if not os.path.exists(filename):
+    return ""
+
   try:
     result = subprocess.run(
       ['file', '-b', filename],
@@ -60,10 +66,13 @@ def get_file_type(filename: str) -> str:
 
 def check_shebang(filename: str) -> Optional[str]:
   """Check file's shebang line for type hints"""
+  if not os.path.exists(filename):
+    return None
+
   try:
     with open(filename, 'r', encoding='utf-8') as f:
       first_line = f.readline().strip()
-      
+
     # Check for various shebangs
     if first_line in {
       "#!/bin/bash",
@@ -74,56 +83,108 @@ def check_shebang(filename: str) -> Optional[str]:
       "#!/usr/bin/sh"
     }:
       return "bash"
-      
+
     if first_line.startswith(("#!/usr/bin/python", "#!/usr/bin/env python")):
       return "python"
-      
+
     if first_line in {
       "#!/usr/bin/php",
       "#!/usr/bin/env php"
     } or first_line.startswith("<?php") or first_line == "<?":
       return "php"
-      
+
   except (IOError, UnicodeDecodeError):
     pass
-    
+
   return None
+
+def is_binary_file(filename: str) -> bool:
+  """Check if a file is binary by looking for null bytes in the first chunk"""
+  if not os.path.exists(filename):
+    return False
+
+  try:
+    with open(filename, 'rb') as f:
+      chunk = f.read(4096)
+      return b'\x00' in chunk
+  except IOError:
+    return False
+
+def get_extension_type(extension: str) -> Optional[str]:
+  """Map file extension to file type"""
+  extension_map: Dict[str, str] = {
+    # Shell scripts
+    'sh': 'bash',
+    'bash': 'bash',
+    'zsh': 'bash',
+    'ksh': 'bash',
+
+    # Python files
+    'py': 'python',
+    'pyw': 'python',
+    'pyi': 'python',
+
+    # PHP files
+    'php': 'php',
+    'php3': 'php',
+    'php4': 'php',
+    'php5': 'php',
+    'php7': 'php',
+    'phtml': 'php',
+
+    # HTML files
+    'html': 'php',  # HTML is handled by PHP validator
+    'htm': 'php',
+
+    # C files
+    'c': 'c',
+    'h': 'c',
+
+    # Text files
+    'txt': 'text',
+    'md': 'text',
+    'csv': 'text',
+    'json': 'text',
+    'xml': 'text',
+    'yaml': 'text',
+    'yml': 'text',
+    'ini': 'text',
+    'conf': 'text',
+    'cfg': 'text',
+  }
+
+  return extension_map.get(extension.lower())
 
 def filetype(filename: str) -> str:
   """
   Determine the type of a file based on extension, shebang, and content analysis.
-  
+
   Args:
     filename: Path to the file to analyze
-    
+
   Returns:
     str: One of 'bash', 'python', 'php', 'c', 'text', or 'binary'
   """
+  # Handle non-existent files
+  if not os.path.exists(filename):
+    return 'text'  # Default to text for new files
+
   # Get file extension if present
   extension = Path(filename).suffix.lower().lstrip('.')
-  
+
   # Check extension first
   if extension:
-    extension_types = {
-      'bash': ['bash', 'sh'],
-      'py': ['python'],
-      'php': ['php', 'html'],
-      'c': ['c'],
-      'text': ['txt', 'text']
-    }
-    
-    for ftype, exts in extension_types.items():
-      if extension in exts:
-        return ftype
-        
-  # If file doesn't exist and no recognized extension, assume text
-  if not os.path.isfile(filename):
-    return 'text'
-    
+    if ext_type := get_extension_type(extension):
+      return ext_type
+
   # Check shebang
   if shebang_type := check_shebang(filename):
     return shebang_type
-    
+
+  # Check if binary
+  if is_binary_file(filename):
+    return 'binary'
+
   # Check MIME type
   mime_type = get_mime_type(filename)
   if mime_type:
@@ -131,24 +192,30 @@ def filetype(filename: str) -> str:
       'text/x-shellscript': 'bash',
       'text/x-python': 'python',
       'text/x-php': 'php',
-      'text/x-c': 'c'
+      'text/x-c': 'c',
+      'text/html': 'php',  # HTML is handled by PHP validator
     }
-    
+
     if mime_type in mime_map:
       return mime_map[mime_type]
-    
+
     if mime_type.startswith('text/'):
       return 'text'
-      
-  # Check if binary
+
+    if not mime_type.startswith('text/'):
+      return 'binary'
+
+  # Check file command output
   file_type = get_file_type(filename)
-  binary_signatures = ('ELF', 'PE32', 'Mach-O', 'data', 'binary')
-  binary_mime_prefixes = ('application/', 'image/', 'audio/', 'video/')
-  
-  if (any(sig in file_type for sig in binary_signatures) or
-      any(mime_type.startswith(prefix) for prefix in binary_mime_prefixes)):
-    return 'binary'
-    
+  if 'shell script' in file_type.lower():
+    return 'bash'
+  if 'python script' in file_type.lower():
+    return 'python'
+  if 'php script' in file_type.lower():
+    return 'php'
+  if 'c program' in file_type.lower():
+    return 'c'
+
   # Default to text
   return 'text'
 
@@ -157,7 +224,7 @@ def main():
   if len(sys.argv) == 1 or sys.argv[1] in ('-h', '--help'):
     print(__doc__)
     sys.exit(0)
-    
+
   try:
     print(filetype(sys.argv[1]))
   except Exception as e:
