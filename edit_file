@@ -1,1 +1,11 @@
-edit_file.py
+#!/bin/bash
+set -eu
+PRG0="$(readlink -en -- "$0")"
+PRGDIR="${PRG0%/*}"
+PRG="${PRG0##*/}"
+
+source "$PRGDIR"/.venv/bin/activate
+
+"$PRGDIR"/.venv/bin/python3 "$PRGDIR"/"$PRG".py "$@"
+
+#fin
