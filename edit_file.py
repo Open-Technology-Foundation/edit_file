@@ -773,16 +773,14 @@ def is_valid_path(path: str) -> bool:
   Returns:
     bool: True if path is valid, False otherwise
   """
-  # Prevent path traversal
-  if re.search(r'\.\./', path):
+  # Relative paths with '../' are legitimate and needed for Linux/Unix systems
+  # Only reject suspicious shell metacharacters
+  if re.search(r'[;&|<>`!]', path):
     return False
     
-  # Reject suspicious shell metacharacters
-  if re.search(r'[;&|<>`$!]', path):
-    return False
-    
-  # Reject environment variable references
-  if re.search(r'\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?', path):
+  # Reject environment variable references in ${VAR} format
+  # but allow $ in paths which can be legitimate
+  if re.search(r'\$\{[a-zA-Z_][a-zA-Z0-9_]*\}', path):
     return False
     
   # Reject unicode characters that can disguise malicious paths
