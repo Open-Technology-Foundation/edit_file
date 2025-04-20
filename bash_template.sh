@@ -49,8 +49,7 @@ trap 'xcleanup $?' SIGINT EXIT
 # ----------------------------------------------------------------------------------------
 
 usage() {
-  local -i exitcode=${1:-0}
-  local -- helptext=$(cat <<EOT
+  cat <<EOT
 $PRG $VERSION - 
 
 
@@ -70,10 +69,8 @@ Examples:
   $PRG 
 
 EOT
-)
-  ((exitcode)) && >&2 echo "$helptext" || echo "$helptext"
-  [[ -z "${1:-}" ]] && return
-  exit "$exitcode"
+  (($#)) || return 0
+  exit "${1:-0}"
 }
 
 #=============================================================================
@@ -83,7 +80,10 @@ main() {
   while (($#)); do case "$1" in
     #-|--)        noarg "$@"; shift; ?="$1" ;;
     #-|--)        ? ;;
-    -h|--help) usage 0;; -v|--verbose) VERBOSE+=1;; -q|--quiet) VERBOSE=0;; -V|--version) echo "$PRG $VERSION"; exit 0;;
+    -h|--help) usage 0 ;; 
+    -v|--verbose) VERBOSE+=1 ;;
+    -q|--quiet) VERBOSE=0 ;;
+    -V|--version) echo "$PRG $VERSION"; exit 0 ;;
     -[hvqV]*) #shellcheck disable=SC2046 #split up single options
                   set -- '' $(printf -- "-%c " $(grep -o . <<<"${1:1}")) "${@:2}";;
     --)           args+=( "$@" ); break ;;
@@ -92,8 +92,7 @@ main() {
                   #args+=( "$1" ) ;;
   esac; shift; done
   
-  text "123334"
-  warn 'a warning'  
+  info "and it begins..."
   
 }
 
